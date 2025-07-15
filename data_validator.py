@@ -10,20 +10,93 @@ from typing import Dict, Any, List, Optional
 class FlightDataValidator:
     """Validates that flight data is real and not generated/fake."""
     
-    # Real airline IATA codes (subset - can be expanded)
+    # Real airline IATA codes (expanded for 149+ sources)
     VALID_AIRLINE_CODES = {
-        'AA', 'DL', 'UA', 'WN', 'B6', 'AS', 'NK', 'F9', 'G4', 'SY',  # US carriers
-        'BA', 'VS', 'LH', 'AF', 'KL', 'IB', 'AZ', 'LX', 'OS', 'SN',  # European carriers
-        'EK', 'QR', 'EY', 'TK', 'SV', 'MS', 'RJ', 'GF', 'WY', 'FZ',  # Middle East carriers
-        'SQ', 'CX', 'JL', 'NH', 'TG', 'MH', 'PR', 'CI', 'BR', 'OZ',  # Asian carriers
+        # US Major Airlines
+        'AA', 'DL', 'UA', 'WN', 'B6', 'AS', 'NK', 'F9', 'G4', 'SY',
+        # US Regional/Other
+        'YX', 'QX', 'OH', 'MQ', 'EV', 'YV', 'CP', '9E', '5Y', 'C5',
+        # European Major Airlines
+        'BA', 'VS', 'LH', 'AF', 'KL', 'IB', 'AZ', 'LX', 'OS', 'SN',
+        # European LCC and Regional
+        'FR', 'U2', 'VY', 'W6', 'PC', 'A3', 'JU', 'OU', 'JP', 'YM',
+        'DY', 'WF', 'V7', 'VF', 'SK', 'AY', 'TP', 'UX', 'I2', 'HV',
+        'EI', 'BE', 'LS', 'BY', 'MT', 'TO',
+        # Middle East Airlines
+        'EK', 'QR', 'EY', 'TK', 'SV', 'MS', 'RJ', 'GF', 'WY', 'FZ',
+        'XY', 'G9', 'NP', 'IF', 'J9', 'AI', 'KC', 'IX', 'SM', 'Y9', 'W5', 'EP', 'IR',
+        # Asian Airlines
+        'SQ', 'CX', 'JL', 'NH', 'TG', 'MH', 'PR', 'CI', 'BR', 'OZ',
+        'KE', 'AI', '6E', 'SG', 'IT', 'G8', 'TR', 'FD', 'AK', 'JQ',
+        'TT', 'MI', 'CA', 'MU', 'CZ', 'HU', 'FM', 'SC', 'KN', 'JD',
+        # African Airlines
+        'SA', 'ET', 'KQ', 'RW', 'AT', 'UG', 'AH', 'HC', 'TU', 'FB',
+        # Latin American Airlines
+        'LA', 'AR', 'CM', 'AV', 'G3', 'JJ', 'AD', 'P5', 'VN', 'LP',
+        'VL', 'Y4', 'AM', 'VB', 'VW', 'JM',
+        # North American Airlines
+        'AC', 'WS', 'PD', 'TS', 'WG', 'F8',
+        # Oceania Airlines
+        'QF', 'VA', 'NZ', 'FJ', 'PX', 'DJ', 'TL', 'IE',
+        # Cargo and Charter Airlines (that also carry passengers)
+        'FX', 'UPS', '5X', 'CV', 'CX', 'LH', 'KL', 'AF', 'QR', 'EK'
     }
     
-    # Valid airport IATA codes (subset - can be expanded)
+    # Valid airport IATA codes (expanded for global coverage)
     VALID_AIRPORT_CODES = {
-        'JFK', 'LAX', 'ORD', 'DFW', 'DEN', 'ATL', 'SFO', 'SEA', 'LAS', 'PHX',  # US airports
-        'LHR', 'CDG', 'AMS', 'FRA', 'MAD', 'FCO', 'ZUR', 'VIE', 'BRU', 'MUC',  # European airports
-        'DXB', 'DOH', 'AUH', 'IST', 'RUH', 'CAI', 'AMM', 'BAH', 'MCT', 'SHJ',  # Middle East airports
-        'SIN', 'HKG', 'NRT', 'ICN', 'BKK', 'KUL', 'MNL', 'TPE', 'PVG', 'PEK',  # Asian airports
+        # US Major Airports
+        'JFK', 'LAX', 'ORD', 'DFW', 'DEN', 'ATL', 'SFO', 'SEA', 'LAS', 'PHX',
+        'MIA', 'EWR', 'LGA', 'BWI', 'DCA', 'IAD', 'BOS', 'MSP', 'DTW', 'CLT',
+        'MCO', 'IAH', 'SAN', 'TPA', 'PDX', 'STL', 'HNL', 'ANC', 'SLC', 'RDU',
+        'BNA', 'AUS', 'MCI', 'IND', 'CLE', 'CMH', 'MKE', 'BUF', 'PIT', 'CVG',
+        # European Major Airports
+        'LHR', 'CDG', 'AMS', 'FRA', 'MAD', 'FCO', 'ZUR', 'VIE', 'BRU', 'MUC',
+        'LGW', 'STN', 'LTN', 'ORY', 'NCE', 'LYS', 'TLS', 'BOD', 'NTE', 'MPL',
+        'BCN', 'PMI', 'AGP', 'LPA', 'TFS', 'IBZ', 'SVQ', 'BIO', 'VLC', 'OVD',
+        'MXP', 'LIN', 'BGY', 'VCE', 'NAP', 'CIA', 'BLQ', 'CTA', 'PMO', 'BRI',
+        'DUS', 'HAM', 'STR', 'CGN', 'TXL', 'SXF', 'NUE', 'FMM', 'DTM', 'LEJ',
+        'CPH', 'OSL', 'ARN', 'GOT', 'BGO', 'TRD', 'HEL', 'TMP', 'KTT', 'OUL',
+        'WAW', 'KRK', 'GDN', 'WRO', 'KTW', 'POZ', 'RZE', 'SZZ', 'BZG', 'LUZ',
+        'PRG', 'BUD', 'SOF', 'OTP', 'BEG', 'ZAG', 'LJU', 'SKP', 'TGD', 'SJJ',
+        'ATH', 'THR', 'SKG', 'HER', 'RHO', 'CFU', 'ZTH', 'PVK', 'KGS', 'JTR',
+        'LIS', 'OPO', 'FAO', 'FNC', 'TER', 'PDL', 'HOR', 'PIX', 'BGZ', 'VRL',
+        # Middle East Airports
+        'DXB', 'DOH', 'AUH', 'IST', 'RUH', 'CAI', 'AMM', 'BAH', 'MCT', 'SHJ',
+        'SAW', 'ADB', 'AYT', 'ESB', 'TZX', 'KYA', 'BJV', 'VAN', 'GZT', 'MLX',
+        'JED', 'DMM', 'MED', 'TUU', 'AHB', 'GIZ', 'ELQ', 'HOF', 'URY', 'TIF',
+        'KWI', 'IKA', 'MHD', 'SYZ', 'AWZ', 'KIH', 'ABD', 'BND', 'HDM', 'IFN',
+        'BEY', 'DAM', 'ALP', 'LTK', 'KAC', 'PMS', 'DEI', 'QAM', 'OSM', 'RPN',
+        # Asian Major Airports
+        'SIN', 'HKG', 'NRT', 'ICN', 'BKK', 'KUL', 'MNL', 'TPE', 'PVG', 'PEK',
+        'CGK', 'DPS', 'SUB', 'MDN', 'PLM', 'PKU', 'JOG', 'SRG', 'PDG', 'BPN',
+        'CAN', 'CTU', 'KMG', 'XIY', 'WUH', 'CSX', 'TAO', 'SHE', 'DLC', 'CGO',
+        'NKG', 'HGH', 'FOC', 'XMN', 'CKG', 'SYX', 'URC', 'LHW', 'INC', 'YNT',
+        'DEL', 'BOM', 'BLR', 'HYD', 'MAA', 'CCU', 'AMD', 'GOI', 'COK', 'TRV',
+        'PNQ', 'JAI', 'LKO', 'VNS', 'GAU', 'IXA', 'IXB', 'IXC', 'IXD', 'IXE',
+        'KHI', 'LHE', 'ISB', 'KHI', 'MUX', 'PEW', 'SKT', 'UET', 'RYK', 'JIW',
+        'DAC', 'CGP', 'JSR', 'SPD', 'CXB', 'ZYL', 'BZL', 'RJH', 'BAU', 'IXS',
+        # Oceania Airports
+        'SYD', 'MEL', 'BNE', 'PER', 'ADL', 'DRW', 'CNS', 'GC', 'HBA', 'LST',
+        'AKL', 'WLG', 'CHC', 'ZQN', 'ROT', 'NPL', 'PMR', 'NPE', 'DUD', 'TRG',
+        'NAN', 'SUV', 'LAB', 'BKI', 'KCH', 'MYY', 'TWU', 'LGK', 'PEN', 'AOR',
+        # African Airports
+        'JNB', 'CPT', 'DUR', 'PLZ', 'BFN', 'ELS', 'GRJ', 'KIM', 'UTN', 'WVB',
+        'ADD', 'BJM', 'DIR', 'MQX', 'GOB', 'JIM', 'LLI', 'SHC', 'AWA', 'GMB',
+        'NBO', 'MBA', 'KIS', 'ELD', 'LOK', 'MYD', 'NYE', 'UAS', 'WIL', 'LAU',
+        'CMN', 'RAK', 'CAS', 'FEZ', 'TNG', 'AGA', 'OUD', 'AHU', 'MLN', 'ERH',
+        'TUN', 'TOE', 'DJE', 'GAF', 'SFA', 'NBE', 'GAB', 'EBM', 'SID', 'TOZ',
+        'CAI', 'LXR', 'HRG', 'SSH', 'ASW', 'RMF', 'UVL', 'ABS', 'EMY', 'SPX',
+        # Latin American Airports
+        'GRU', 'GIG', 'BSB', 'CGH', 'SDU', 'CNF', 'POA', 'REC', 'FOR', 'SSA',
+        'EZE', 'AEP', 'COR', 'MDZ', 'USH', 'IGR', 'BRC', 'NQN', 'CTC', 'TUC',
+        'SCL', 'LSC', 'CCP', 'IQQ', 'ANF', 'PMC', 'ZCO', 'WCH', 'ZAL', 'PUQ',
+        'BOG', 'MDE', 'CLO', 'BAQ', 'SMR', 'CTG', 'BGA', 'MTR', 'AXM', 'ADZ',
+        'LIM', 'CUZ', 'AQP', 'TRU', 'PIU', 'IQT', 'CJA', 'TCQ', 'AYP', 'JUL',
+        'UIO', 'GYE', 'CUE', 'LTX', 'ESM', 'XMS', 'GPS', 'SCY', 'OCC', 'TUA',
+        'PTY', 'DAV', 'CHX', 'LAC', 'ONX', 'PAC', 'OTD', 'COL', 'CTD', 'MPP',
+        'SJO', 'LIR', 'PBP', 'SYQ', 'NCT', 'TMU', 'BCL', 'CSC', 'GLF', 'RIK',
+        'GUA', 'FRS', 'AAZ', 'CMM', 'MCR', 'PCG', 'POP', 'UAX', 'CBL', 'LCE',
+        'SAL', 'SAP', 'RTB', 'LCE', 'UAX', 'ACU', 'MVD', 'ASU', 'CYR', 'PDP'
     }
     
     @staticmethod

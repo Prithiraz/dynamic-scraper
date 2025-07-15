@@ -1,6 +1,7 @@
 """
 Real flight data scrapers - NO FAKE DATA GENERATION.
 This module only fetches real flight data from legitimate sources.
+Now includes 149+ airline and travel booking websites.
 """
 
 import asyncio
@@ -13,52 +14,96 @@ import random
 import time
 from config import Config
 from data_validator import FlightDataValidator
+from airline_scrapers import MultiAirlineFlightScraper
 
 class RealFlightDataScraper:
     """
-    Scraper that only returns real flight data.
+    Enhanced scraper that pulls real flight data from 149+ sources.
     NO fallback data generation - fails gracefully if real data unavailable.
     """
     
     def __init__(self):
         self.config = Config()
         self.validator = FlightDataValidator()
+        self.multi_scraper = MultiAirlineFlightScraper()
         # Validate configuration to ensure no fake data is allowed
         self.config.validate_config()
     
     async def search_flights(self, origin: str, destination: str, departure_date: str, 
                            return_date: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Search for real flights between origin and destination.
+        Search for real flights from 149+ sources including airlines and travel sites.
         Returns empty list if no real data is available - NO FAKE DATA.
         """
         all_flights = []
         
-        # Try multiple real data sources
+        print(f"Searching across all available sources for real flight data...")
+        
+        # Search all airline websites and travel booking sites
         try:
-            # Try Amadeus API first
+            multi_source_flights = await self.multi_scraper.search_all_sources(
+                origin, destination, departure_date, return_date
+            )
+            if multi_source_flights:
+                all_flights.extend(multi_source_flights)
+                print(f"Multi-source search found {len(multi_source_flights)} flights")
+        except Exception as e:
+            print(f"Multi-source search failed: {e}")
+        
+        # Try API sources as additional backup
+        try:
+            # Try Amadeus API
             amadeus_flights = await self._get_amadeus_flights(origin, destination, departure_date, return_date)
             if amadeus_flights:
                 all_flights.extend(amadeus_flights)
+                print(f"Amadeus API found {len(amadeus_flights)} flights")
         except Exception as e:
             print(f"Amadeus API failed: {e}")
         
         try:
-            # Try RapidAPI/Skyscanner as backup
+            # Try RapidAPI/Skyscanner
             skyscanner_flights = await self._get_skyscanner_flights(origin, destination, departure_date, return_date)
             if skyscanner_flights:
                 all_flights.extend(skyscanner_flights)
+                print(f"Skyscanner API found {len(skyscanner_flights)} flights")
         except Exception as e:
             print(f"Skyscanner API failed: {e}")
         
-        # Validate all flights to ensure they are real
-        validated_flights = self.validator.validate_flight_list(all_flights)
+        # Remove duplicates and validate all flights
+        unique_flights = self._deduplicate_flights(all_flights)
+        validated_flights = [f for f in unique_flights if self.validator.validate_flight_data(f)]
         
         if not validated_flights:
             raise ValueError(f"No real flight data available for {origin} to {destination} on {departure_date}. "
-                           "Cannot provide fake data as per configuration.")
+                           "Searched {len(self.get_source_count())} sources. Cannot provide fake data as per configuration.")
         
+        print(f"Final result: {len(validated_flights)} validated real flights from {len(all_flights)} total found")
         return validated_flights
+    
+    def get_source_count(self) -> int:
+        """Get the total number of flight data sources available."""
+        source_info = self.multi_scraper.get_supported_sources()
+        return source_info['total_sources'] + 2  # +2 for Amadeus and Skyscanner APIs
+    
+    def get_source_details(self) -> Dict[str, Any]:
+        """Get detailed information about all flight data sources."""
+        source_info = self.multi_scraper.get_supported_sources()
+        source_info['api_sources'] = ['Amadeus API', 'Skyscanner API']
+        source_info['total_with_apis'] = source_info['total_sources'] + 2
+        return source_info
+    
+    def _deduplicate_flights(self, flights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Remove duplicate flights based on flight number and departure time."""
+        seen = set()
+        unique_flights = []
+        
+        for flight in flights:
+            key = (flight.get('flight_number'), flight.get('departure_time'))
+            if key not in seen:
+                seen.add(key)
+                unique_flights.append(flight)
+        
+        return unique_flights
     
     async def _get_amadeus_flights(self, origin: str, destination: str, 
                                   departure_date: str, return_date: Optional[str] = None) -> List[Dict[str, Any]]:
