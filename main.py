@@ -103,12 +103,19 @@ class DynamicFlightScraperApp:
     
     async def run_interactive_mode(self):
         """Run the scraper in interactive mode."""
-        print("\n" + "="*60)
-        print("DYNAMIC FLIGHT SCRAPER - REAL DATA ONLY")
-        print("="*60)
-        print("This application ONLY provides real flight data.")
-        print("No fake or fallback data will be generated.")
-        print("="*60 + "\n")
+        source_info = self.scraper.get_source_details()
+        
+        print("\n" + "="*80)
+        print("DYNAMIC FLIGHT SCRAPER - 149+ REAL DATA SOURCES")
+        print("="*80)
+        print("This application searches real flight data from:")
+        print(f"• {source_info['airlines']} airline websites")
+        print(f"• {source_info['travel_sites']} travel booking sites") 
+        print(f"• {len(source_info['api_sources'])} flight data APIs")
+        print(f"• TOTAL: {source_info['total_with_apis']} real flight data sources")
+        print("\nNo fake or fallback data will EVER be generated.")
+        print("All flight data is validated for authenticity.")
+        print("="*80 + "\n")
         
         while True:
             try:
